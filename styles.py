@@ -7,34 +7,7 @@ def apply_custom_branding(user=None):
     """
     st.markdown("""
         <style>
-        /* Fundo claro e limpo */
-        .stApp {
-            background-color: #F8F9FA;
-            color: #212529;
-        }
-
-        /* Sidebar com azul corporativo suave */
-        [data-testid="stSidebar"] {
-            background-color: #FFFFFF;
-            border-right: 1px solid #E9ECEF;
-        }
-
-        /* Estilização de Cards e Expansores (Fundo Branco, Borda Suave) */
-        .stExpander {
-            background-color: #FFFFFF !important;
-            border: 1px solid #E9ECEF !important;
-            border-radius: 8px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin-bottom: 10px;
-        }
-        
-        .streamlit-expanderHeader {
-            background-color: #FFFFFF !important;
-            color: #004085 !important;
-            font-weight: bold !important;
-        }
-
-        /* Botões com azul BBM */
+        /* Ajuste de Botões com azul corporativo */
         div.stButton > button:first-child {
             background-color: #004085;
             color: white !important;
@@ -47,7 +20,7 @@ def apply_custom_branding(user=None):
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
-        /* Badges de Status */
+        /* Badges de Status (Cores adaptadas para leitura em claro/escuro) */
         .badge {
             padding: 4px 10px;
             border-radius: 12px;
@@ -55,19 +28,23 @@ def apply_custom_branding(user=None):
             font-size: 0.8rem;
             display: inline-block;
         }
-        .badge-sucesso { background-color: #D4EDDA; color: #155724; }
-        .badge-perigo { background-color: #F8D7DA; color: #721C24; }
-        .badge-atencao { background-color: #FFF3CD; color: #856404; }
+        .badge-sucesso { background-color: #198754; color: #FFFFFF; }
+        .badge-perigo { background-color: #DC3545; color: #FFFFFF; }
+        .badge-atencao { background-color: #FFC107; color: #000000; }
 
-        /* Títulos e Textos */
+        /* Estilização para as caixas de Status SIL */
+        .status-box {
+            background-color: var(--secondary-background-color); 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin-top: 10px;
+            color: var(--text-color);
+        }
+
+        /* Títulos */
         h1, h2, h3 {
-            color: #004085 !important;
+            color: var(--text-color) !important;
         }
-        
-        .stMarkdown p {
-            color: #495057;
-        }
-
         </style>
     """, unsafe_allow_html=True)
 
@@ -95,7 +72,7 @@ def render_sil_status(status, data_consulta):
     color = "#28a745" if status_norm == "validado" else "#dc3545"
     
     st.markdown(f"""
-        <div style='background-color: #f1f3f5; padding: 10px; border-radius: 5px; margin-top: 10px;'>
+        <div class='status-box'>
             <b>Status SIL:</b> <span style='color: {color}; font-weight: bold;'>{status}</span>
             <br><small>Consulta realizada em: {data_consulta}</small>
         </div>
