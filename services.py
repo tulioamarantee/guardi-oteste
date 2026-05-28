@@ -143,13 +143,13 @@ def listar_motoristas(empresa_id, busca=""):
 def verificar_validade_existente(cpf, empresa_id):
     """
     Verifica se o motorista já existe e se a consulta SIL ainda é válida.
-    Retorna (existe, valida, data_expiracao)
+    Retorna (existe, valida, data_expiracao, nome, status_sil, data_consulta_sil)
     """
     cpf_limpo = ''.join(filter(str.isdigit, cpf))
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT data_expiracao, nome FROM motoristas 
+        SELECT data_expiracao, nome, status_sil, data_consulta_sil FROM motoristas 
         WHERE cpf = ? AND empresa_id = ?
     ''', (cpf_limpo, empresa_id))
     res = cursor.fetchone()
@@ -157,19 +157,21 @@ def verificar_validade_existente(cpf, empresa_id):
     
     if res:
         data_exp = res['data_expiracao']
+        status_sil = res['status_sil']
+        data_consulta_sil = res['data_consulta_sil']
         if not data_exp or data_exp == "N/I":
-            return True, False, "N/I", res['nome']
+            return True, False, "N/I", res['nome'], status_sil, data_consulta_sil
         
         try:
             data_limpa = data_exp.split('T')[0]
             dt_exp = datetime.strptime(data_limpa, "%Y-%m-%d")
             if dt_exp > datetime.now():
-                return True, True, dt_exp.strftime("%d/%m/%Y"), res['nome']
+                return True, True, dt_exp.strftime("%d/%m/%Y"), res['nome'], status_sil, data_consulta_sil
         except:
             pass
-        return True, False, data_exp, res['nome']
+        return True, False, data_exp, res['nome'], status_sil, data_consulta_sil
     
-    return False, False, None, None
+    return False, False, None, None, None, None
 
 def cadastrar_motorista(dados, empresa_id):
     conn = get_connection()

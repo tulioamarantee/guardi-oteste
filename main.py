@@ -245,9 +245,11 @@ def render_modal_cadastro_sil(user):
             elif not services.validar_cpf(cpf):
                 st.error("❌ CPF Inválido.")
             else:
-                existe, valida, data_exp, nome_ex = services.verificar_validade_existente(cpf, user['empresa_id'])
+                existe, valida, data_exp, nome_ex, status_sil, data_consulta_sil = services.verificar_validade_existente(cpf, user['empresa_id'])
                 if existe:
-                    st.warning(f"⚠️ {nome_ex} já cadastrado.")
+                    st.warning(f"⚠️ {nome_ex} já está cadastrado no sistema.")
+                    if status_sil and data_consulta_sil:
+                        styles.render_sil_status(status_sil, data_consulta_sil)
                 else:
                     fazer_consulta_sil(cpf, user)
     
