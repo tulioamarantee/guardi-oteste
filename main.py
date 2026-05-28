@@ -255,13 +255,15 @@ def render_modal_cadastro_sil(user):
     
     st.divider()
     st.subheader("📁 Importação em Massa")
-    uploaded_file = st.file_uploader("Arquivo Excel ou PDF com CPFs", type=["xlsx", "xls", "pdf"])
+    uploaded_file = st.file_uploader("Arquivo Excel, PDF ou TXT com CPFs", type=["xlsx", "xls", "pdf", "txt"])
     if uploaded_file:
         if st.button("🚀 Iniciar Importação"):
             with st.spinner("Processando..."):
                 ext = uploaded_file.name.split('.')[-1].lower()
                 if ext == 'pdf':
                     sucesso, msg = services.importar_motoristas_pdf(uploaded_file, user['empresa_id'], user['nome'])
+                elif ext == 'txt':
+                    sucesso, msg = services.importar_motoristas_txt(uploaded_file, user['empresa_id'], user['nome'])
                 else:
                     sucesso, msg = services.importar_motoristas_excel(uploaded_file, user['empresa_id'], user['nome'])
                     

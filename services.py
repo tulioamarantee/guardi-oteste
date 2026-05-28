@@ -549,6 +549,134 @@ def importar_motoristas_pdf(file, empresa_id, usuario_nome):
     except Exception as e:
         return False, f"Erro ao processar PDF: {e}"
 
+def importar_motoristas_txt(file, empresa_id, usuario_nome):
+    """
+    Processa arquivo TXT, busca CPFs via Regex, consulta SIL e cadastra motoristas.
+    """
+    try:
+        texto = file.read().decode('utf-8', errors='ignore')
+        
+        # Regex para buscar padrões de CPF
+        padrao_cpf = re.compile(r'\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b')
+        cpfs_encontrados = padrao_cpf.findall(texto)
+        
+        if not cpfs_encontrados:
+            return False, "Nenhum CPF encontrado no arquivo TXT."
+            
+        # Limpar e remover duplicados
+        cpfs = []
+        for cpf in cpfs_encontrados:
+            cpf_limpo = ''.join(filter(str.isdigit, cpf)).zfill(11)
+            if len(cpf_limpo) == 11 and cpf_limpo not in cpfs:
+                cpfs.append(cpf_limpo)
+                
+        importados = 0
+        erros = 0
+        duplicados = 0
+        validados = 0
+        bloqueados = 0
+        vencidos = 0
+        detalhes_processamento = []
+        
+        hoje = datetime.now()
+        
+        # Consultar Opentech em paralelo usando ThreadPoolExecutor
+        resultados_opentech = {}
+        def consultar_paralelo(c):
+            return c, consultar_opentech(c, "TOKEN", usuario_nome)
+            
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(consultar_paralelo, c) for c in cpfs]
+            for future in futures:
+                c, res = future.result()
+                resultados_opentech[c] = res
+                
+        # Gravar no Banco de Dados SQLite sequencialmente
+        for cpf_limpo in cpfs:
+            res = resultados_opentech[cpf_limpo]
+            if "Erro" not in res['status']:
+                status_sil = res['status']
+                status_norm = str(status_sil).strip().lower()
+                
+                if status_norm == "validado":
+                    validados += 1
+                    status_emoji = "✅"
+                else:
+                    bloqueados += 1
+                    status_emoji = "❌"
+                
+                validade = res['validade']
+                validade_status = "N/I"
+                if validade and validade != "N/I":
+                    try:
+                        data_limpa = validade.split('T')[0]
+                        dt_exp = datetime.strptime(data_limpa, "%Y-%m-%d")
+                        if dt_exp < hoje:
+                            vencidos += 1
+                            validade_status = "❌ Vencido"
+                        else:
+                            validade_status = f"📅 Vence em {dt_exp.strftime('%d/%m/%Y')}"
+                    except Exception:
+                        validade_status = validade
+                        
+                dados = {
+                    'nome': res['nome'], 'cpf': cpf_limpo, 'cnh': res['cnh'], 
+                    'categoria': res['categoria'],
+                    'status_sil': res['status'],
+                    'data_consulta_sil': res['data_consulta'],
+                    'validade': res['validade']
+                }
+                
+                sucesso, _ = cadastrar_motorista(dados, empresa_id)
+                tipo_import = "Novo"
+                if sucesso:
+                    importados += 1
+                else:
+                    conn = get_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM motoristas WHERE cpf = ? AND empresa_id = ?", (cpf_limpo, empresa_id))
+                    mot = cursor.fetchone()
+                    conn.close()
+                    
+                    if mot:
+                        ok, _ = atualizar_sil_motorista(mot[0], cpf_limpo, empresa_id, usuario_nome)
+                        if ok: 
+                            duplicados += 1
+                            tipo_import = "Atualizado"
+                        else: 
+                            erros += 1
+                            tipo_import = "Falha"
+                    else:
+                        erros += 1
+                        tipo_import = "Falha"
+                        
+                detalhes_processamento.append(
+                    f"- **{res['nome']}** ({cpf_limpo}) | SIL: {status_emoji} {res['status']} | Validade: {validade_status} | ({tipo_import})"
+                )
+            else:
+                erros += 1
+                detalhes_processamento.append(f"- CPF **{cpf_limpo}** | ❌ Erro Opentech: {res['status']}")
+        
+        detalhes_str = "\n".join(detalhes_processamento)
+        msg = (
+            f"Importação de TXT concluída com sucesso!\n\n"
+            f"📊 **Resumo do Processamento:**\n"
+            f"- **Total de CPFs no TXT:** {len(cpfs)}\n"
+            f"- **Novos cadastrados:** {importados}\n"
+            f"- **Atualizados (já cadastrados):** {duplicados}\n"
+            f"- **Falhas no processamento:** {erros}\n\n"
+            f"🔍 **Status SIL Opentech:**\n"
+            f"- ✅ **Validados:** {validados}\n"
+            f"- ❌ **Bloqueados/Outros:** {bloqueados}\n"
+            f"- 📅 **Vencidos:** {vencidos}\n\n"
+            f"📋 **Lista de Motoristas Processados:**\n"
+            f"{detalhes_str}"
+        )
+        return True, msg
+    except Exception as e:
+        return False, f"Erro ao processar TXT: {e}"
+
+
 def atualizar_sil_motorista(motorista_id, cpf, empresa_id, usuario_nome):
     """
     Força uma nova consulta na Opentech e atualiza o motorista existente.
