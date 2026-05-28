@@ -1,0 +1,8 @@
+__pycache__/
+logs/
+scratch/
+.env
+cleanup_users.py
+*.jpg
+*.xlsx
+*.PDF
